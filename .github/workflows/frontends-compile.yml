@@ -1,0 +1,72 @@
+name: Frontends still compile
+# Reusable (G2 E3). A backend PR that changes its contract regenerates web's and mobile's types from the PR's contract
+# (`npm run contracts -- <service> --from <file>`) and typechecks both apps, so a field the apps read can't be dropped
+# or renamed unnoticed. Typecheck only, about a minute. Each backend calls it only when its contract file changes:
+#
+#   on:
+#     pull_request:
+#       paths: [openapi.yaml, .github/workflows/frontends-compile.yml]
+#   jobs:
+#     frontends:
+#       uses: arcanist-cloud/.github/.github/workflows/frontends-compile.yml@main
+#       with: { service: chat, contract: openapi.yaml }
+#       secrets: { FRONTENDS_READ_TOKEN: "${{ secrets.FRONTENDS_READ_TOKEN }}" }
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: The name `npm run contracts` knows it by (api, chat or solana-crypto-service)
+        required: true
+        type: string
+      contract:
+        description: The contract file in the calling repo
+        required: true
+        type: string
+    secrets:
+      FRONTENDS_READ_TOKEN:
+        description: Fine-grained, read-only (Contents) on arcanist-fullstack and arcanist-mobile only
+        required: true
+permissions:
+  contents: read
+jobs:
+  typecheck:
+    name: ${{ matrix.app }}
+    runs-on: ubuntu-latest # not mobile's Mac mini: it runs one job at a time, and tsc needs no Mac
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: arcanist-fullstack
+            ref: dev # web's PRs merge into dev
+            node-file: app/.nvmrc
+          - app: arcanist-mobile
+            ref: main
+            node: 24 # as mobile's test.yml
+    env:
+      SERVICE: ${{ inputs.service }}
+      CONTRACT: ${{ github.workspace }}/backend/${{ inputs.contract }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: backend
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: arcanist-cloud/${{ matrix.app }}
+          ref: ${{ matrix.ref }}
+          token: ${{ secrets.FRONTENDS_READ_TOKEN }}
+          path: app
+          persist-credentials: false # the token only fetches the code; npm ci and tsc never see it
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          node-version-file: ${{ matrix.node-file }}
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+        working-directory: app
+      - run: npm run contracts -- "$SERVICE" --from "$CONTRACT"
+        working-directory: app
+      - run: npx tsc --noEmit
+        working-directory: app
