@@ -14,8 +14,9 @@ This file says what each status means.
 | 200 | Done, here's the answer. The default for reads, updates and creates. | `GET /api/v2/current-user` |
 | 201 | Created something new, **only** on a route that can also answer 200 for "it already existed". | chat `POST /dm/rooms`: 201 new room, 200 your existing 1:1 with that person |
 | 202 | Started, not finished: ask again (send the same request with the same key) | a token mint still running; a quest waiting for an admin |
+| 204 | Done, nothing to send back, **only** where the apps read no answer | api's tracking ping; removing a block |
 
-No 204: an empty body breaks app code that reads the answer. Send `{ "success": true }` instead.
+When in doubt, 200 with `{ "success": true }`: a 204's empty body breaks app code that reads the answer.
 
 ## Errors
 
@@ -28,7 +29,7 @@ No 204: an empty body breaks app code that reads the answer. Send `{ "success": 
 | 409 | Conflicts with the current state: a used key, already opened | | show the error |
 | 422 | Well-formed, but a rule says no: a limit, a balance, an expired invite, a wrong quest answer | a malformed request (400) | show the error |
 | 429 | Too many requests: try again later, with a `Retry-After` header | a daily or count limit (422: retrying won't help) | the outbox waits and retries; elsewhere, show the error |
-| 500 | Our fault: a bug or broken data | anything the person can fix | show a fixed message |
+| 500 | Our fault: a bug or broken data | anything the person can fix | show the error |
 | 502 | A service we depend on failed or answered wrongly | | "Can't connect"; the outbox retries |
 | 503 | A service we depend on is down: retry later | | "Can't connect"; the outbox retries |
 
