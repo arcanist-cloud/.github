@@ -49,7 +49,12 @@ Every error is one shape:
 `error` is a sentence a person can read: the apps show it in the toast. Never an exception's own text
 ("undefined method '[]' for nil"): log that, and send a fixed sentence.
 
-Some older api routes still send other shapes (`{ "message" }`, `{ "errors": [...] }`); they are being converted.
+Every api and chat error has `error` (a few add data next to it, like the under-13 answer's `message`).
+solana-crypto-service still sends `{ "success": false, "message" }` on some routes;
+the apps show `message` when there's no `error`, but new code sends `{ "error" }`.
+
+The apps show the `error` of a refusal as is. For no answer, or a 502, 503 or 504, they show "Can't connect to Reactive
+at this time" whatever the body says: there, `error` is for logs and the words below, not for people.
 
 ## Words the apps react to
 
